@@ -1,13 +1,13 @@
 use std::{
+    borrow::Borrow,
     hash::{DefaultHasher, Hash, Hasher},
     mem,
+    ops::Index,
 };
 
 const INITIAL_NBUCKETS: usize = 1;
 pub struct HashMap<K, V> {
     buckets: Vec<Vec<(K, V)>>,
-    //buckets: Vec<Bucket<K, V>>,
-    //build_hasher: RandomState,
     items: usize,
 }
 
@@ -20,11 +20,21 @@ impl<K, V> HashMap<K, V> {
     }
 }
 
+impl<K, V> Default for HashMap<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K, V> HashMap<K, V>
 where
     K: Hash + Eq,
 {
-    fn get_bucket(&self, key: &K) -> usize {
+    fn get_bucket<Q>(&self, key: &Q) -> usize
+    where
+        K: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         (hasher.finish() % self.buckets.len() as u64) as usize
@@ -75,24 +85,38 @@ where
         None
     }
 
-    pub fn get(&self, key: &K) -> Option<&V> {
+    //pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
         let bucket = self.get_bucket(key);
         self.buckets[bucket]
             .iter()
-            .find(|(k, _)| k == key)
+            .find(|(k, _)| k.borrow() == key)
             .map(|(_, v)| v)
     }
 
-    pub fn contains_key(&self, key: &K) -> bool {
+    //pub fn contains_key(&self, key: &K) -> bool
+    pub fn contains_key<Q>(&self, key: &Q) -> bool
+    where
+        K: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
         let bucket = self.get_bucket(key);
-        self.buckets[bucket].iter().any(|(k, _)| k == key)
+        self.buckets[bucket].iter().any(|(k, _)| k.borrow() == key)
     }
 
-    pub fn remove(&mut self, key: &K) -> Option<V> {
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
         let bucket = self.get_bucket(key);
         let bucket = &mut self.buckets[bucket];
         //let removed = None;
-        let index = bucket.iter().position(|(k, _)| k == key)?;
+        let index = bucket.iter().position(|(k, _)| k.borrow() == key)?;
         self.items -= 1;
         Some(bucket.swap_remove(index).1)
     }
@@ -138,6 +162,24 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     }
 }
 
+impl<K, Q, V> Index<&Q> for HashMap<K, V>
+where
+    K: Eq + Hash + Borrow<Q>,
+    Q: Eq + Hash + ?Sized,
+{
+    type Output = V;
+    fn index(&self, key: &Q) -> &V {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+
+        let bucket = (hasher.finish() % self.buckets.len() as u64) as usize;
+        self.buckets[bucket]
+            .iter()
+            .find(|(k, _)| k.borrow() == key)
+            .map(|(_, v)| v)
+            .unwrap()
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
