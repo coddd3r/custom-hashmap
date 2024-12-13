@@ -30,6 +30,14 @@ where
         (hasher.finish() % self.buckets.len() as u64) as usize
     }
 
+    pub fn len(&self) -> usize {
+        self.items
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items == 0
+    }
+
     fn resize(&mut self) {
         let target_size = match self.buckets.len() {
             0 => INITIAL_NBUCKETS,
@@ -75,12 +83,58 @@ where
             .map(|(_, v)| v)
     }
 
+    pub fn contains_key(&self, key: &K) -> bool {
+        let bucket = self.get_bucket(key);
+        self.buckets[bucket].iter().any(|(k, _)| k == key)
+    }
+
     pub fn remove(&mut self, key: &K) -> Option<V> {
         let bucket = self.get_bucket(key);
         let bucket = &mut self.buckets[bucket];
         //let removed = None;
         let index = bucket.iter().position(|(k, _)| k == key)?;
+        self.items -= 1;
         Some(bucket.swap_remove(index).1)
+    }
+}
+
+pub struct Iter<'a, K, V> {
+    map: &'a HashMap<K, V>,
+    curr_bucket: usize,
+    at: usize, // index inside a specific bucket
+}
+
+impl<'a, K, V> Iterator for Iter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.map.buckets.get(self.curr_bucket) {
+                Some(bucket) => match bucket.get(self.at) {
+                    Some((k, v)) => {
+                        self.at += 1;
+                        break Some((k, v));
+                    }
+                    None => {
+                        self.curr_bucket += 1;
+                        self.at = 0;
+                        continue;
+                    }
+                },
+                None => break None,
+            }
+        }
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
+    fn into_iter(self) -> Iter<'a, K, V> {
+        Iter {
+            curr_bucket: 0,
+            at: 0,
+            map: self,
+        }
     }
 }
 
@@ -91,10 +145,37 @@ mod tests {
     #[test]
     fn insert_test() {
         let mut map = HashMap::new();
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
         map.insert("a", 10);
         assert_eq!(map.get(&"a"), Some(&10));
+        assert!(!map.is_empty());
+        assert_eq!(map.len(), 1);
+        assert!(map.contains_key(&"a"));
         assert_eq!(map.remove(&"a"), Some(10));
+        assert_eq!(map.len(), 0);
+        assert!(map.is_empty());
 
         assert_eq!(map.get(&"a"), None);
+    }
+
+    #[test]
+    fn iter_test() {
+        let mut map = HashMap::new();
+        assert!(map.is_empty());
+        map.insert("a", 10);
+        map.insert("b", 20);
+        map.insert("c", 30);
+        map.insert("d", 40);
+        assert!(!map.is_empty());
+        assert_eq!(map.len(), 4);
+
+        map.into_iter().for_each(|(k, v)| match *k {
+            "a" => assert_eq!(*v, 10),
+            "b" => assert_eq!(*v, 20),
+            "c" => assert_eq!(*v, 30),
+            "d" => assert_eq!(*v, 40),
+            _ => unreachable!(),
+        });
     }
 }
