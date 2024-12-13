@@ -26,6 +26,125 @@ impl<K, V> Default for HashMap<K, V> {
     }
 }
 
+impl<K, V> Clone for HashMap<K, V>
+where
+    K: Clone + Hash + Eq,
+    V: Clone + Hash + Eq,
+{
+    fn clone(&self) -> HashMap<K, V> {
+        let mut cloned_buckets = HashMap::new();
+        for x in self.buckets.iter() {
+            for (key, value) in x {
+                cloned_buckets.insert(key.clone(), value.clone());
+            }
+        }
+        cloned_buckets
+    }
+}
+
+pub struct OccupiedEntry<'a, K, V> {
+    element: &'a mut (K, V), //ref to the present key,val pair
+}
+
+pub struct VacantEntry<'a, K, V> {
+    key: K,
+    bucket: &'a mut Vec<(K, V)>, //bucket that it will be placed to
+}
+
+impl<'a, K, V> VacantEntry<'a, K, V> {
+    pub fn insert(self, value: V) -> &'a mut V {
+        self.bucket.push((self.key, value));
+        &mut self.bucket.last_mut().unwrap().1
+    }
+}
+
+pub enum Entry<'a, K, V> {
+    Occupied(OccupiedEntry<'a, K, V>),
+    Vacant(VacantEntry<'a, K, V>),
+}
+
+impl<'a, K, V> Entry<'a, K, V>
+where
+//K: Copy,
+//V: Copy,
+{
+    pub fn and_modify<F>(&mut self, modifier: F) -> Self
+    where
+        F: FnOnce(&mut V),
+        //OccupiedEntry<'a, K, V>: Copy,
+        //VacantEntry<'a, K, V>: Copy,
+    {
+        match self {
+            Entry::Occupied(e) => {
+                modifier(&mut e.element.1);
+                //                let ret = mem::replace(
+                //                    e,
+                //                    OccupiedEntry {
+                //                        element: &mut (0, 0),
+                //                    },
+                //                );
+                Entry::Occupied(*e)
+            }
+            Entry::Vacant(e) => Entry::Vacant(*e),
+        }
+    }
+}
+
+impl<'a, K, V> Entry<'a, K, V> {
+    pub fn or_insert(self, val: V) -> &'a mut V {
+        match self {
+            Entry::Occupied(e) => &mut e.element.1, //ifoccupied give back value
+            Entry::Vacant(e) => e.insert(val),
+        }
+    }
+
+    pub fn or_insert_with<F>(self, maker: F) -> &'a mut V
+    where
+        F: FnOnce() -> V,
+    {
+        match self {
+            Entry::Occupied(e) => &mut e.element.1, //ifoccupied give back value
+            Entry::Vacant(e) => e.insert(maker()),
+        }
+    }
+
+    pub fn or_default(self) -> &'a mut V
+    where
+        V: Default,
+    {
+        self.or_insert_with(Default::default)
+    }
+
+    //pub fn and_modify<F>(&mut self, modifier: F) -> Self
+    //where
+    //    F: FnOnce(&mut V),
+    //{
+    //    // match self {
+    //    //     Entry::Occupied(mut e) => {
+    //    //         modifier(&mut e.element.1);
+    //    //         //                let ret = mem::replace(
+    //    //         //                    e,
+    //    //         //                    OccupiedEntry {
+    //    //         //                        element: &mut (0, 0),
+    //    //         //                    },
+    //    //         //                );
+    //    //         Entry::Occupied(e)
+    //    //     }
+    //    //     Entry::Vacant(mut e) => Entry::Vacant(e),
+    //    // }
+    //    let mut ret;
+    //    if let Entry::Occupied(mut e) = self {
+    //        modifier(&mut e.element.1);
+    //        ret = Entry::Occupied(e);
+    //    } else {
+    //        if let Entry::Vacant(mut e) = self {
+    //            ret = Entry::Vacant(e);
+    //        };
+    //    }
+    //    ret
+    //}
+}
+
 impl<K, V> HashMap<K, V>
 where
     K: Hash + Eq,
@@ -85,7 +204,6 @@ where
         None
     }
 
-    //pub fn get(&self, key: &K) -> Option<&V> {
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -98,7 +216,6 @@ where
             .map(|(_, v)| v)
     }
 
-    //pub fn contains_key(&self, key: &K) -> bool
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -106,6 +223,21 @@ where
     {
         let bucket = self.get_bucket(key);
         self.buckets[bucket].iter().any(|(k, _)| k.borrow() == key)
+    }
+
+    pub fn entry(&mut self, key: K) -> Entry<K, V> {
+        let bucket = self.get_bucket(&key);
+        let bucket = &mut self.buckets[bucket];
+
+        //get around double borrow
+        if bucket.iter().any(|(k, _)| k == &key) {
+            let e = bucket.iter_mut().find(|(k, _)| k == &key);
+            return Entry::Occupied(OccupiedEntry {
+                element: e.unwrap(),
+            });
+        } else {
+            Entry::Vacant(VacantEntry { key, bucket })
+        }
     }
 
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
@@ -180,6 +312,7 @@ where
             .unwrap()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
