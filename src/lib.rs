@@ -62,33 +62,37 @@ pub enum Entry<'a, K, V> {
     Occupied(OccupiedEntry<'a, K, V>),
     Vacant(VacantEntry<'a, K, V>),
 }
+//pub enum Entry<'a, K, V> {
+//    Occupied(OccupiedEntry<'a, K, V>),
+//    Vacant(VacantEntry<'a, K, V>),
+//}
 
-impl<'a, K, V> Entry<'a, K, V>
-where
+//impl<'a, K, V> Entry<'a, K, V>
+//where
 //K: Copy,
 //V: Copy,
-{
-    pub fn and_modify<F>(&mut self, modifier: F) -> Self
-    where
-        F: FnOnce(&mut V),
-        //OccupiedEntry<'a, K, V>: Copy,
-        //VacantEntry<'a, K, V>: Copy,
-    {
-        match self {
-            Entry::Occupied(e) => {
-                modifier(&mut e.element.1);
-                //                let ret = mem::replace(
-                //                    e,
-                //                    OccupiedEntry {
-                //                        element: &mut (0, 0),
-                //                    },
-                //                );
-                Entry::Occupied(*e)
-            }
-            Entry::Vacant(e) => Entry::Vacant(*e),
-        }
-    }
-}
+//{
+//    pub fn and_modify<F>(&mut self, modifier: F) -> Self
+//    where
+//        F: FnOnce(&mut V),
+//        //OccupiedEntry<'a, K, V>: Copy,
+//        //VacantEntry<'a, K, V>: Copy,
+//    {
+//        match self {
+//            Entry::Occupied(e) => {
+//                modifier(&mut e.element.1);
+//                //                let ret = mem::replace(
+//                //                    e,
+//                //                    OccupiedEntry {
+//                //                        element: &mut (0, 0),
+//                //                    },
+//                //                );
+//                Entry::Occupied(e)
+//            }
+//            Entry::Vacant(e) => Entry::Vacant(e),
+//        }
+//    }
+//}
 
 impl<'a, K, V> Entry<'a, K, V> {
     pub fn or_insert(self, val: V) -> &'a mut V {
@@ -115,34 +119,24 @@ impl<'a, K, V> Entry<'a, K, V> {
         self.or_insert_with(Default::default)
     }
 
-    //pub fn and_modify<F>(&mut self, modifier: F) -> Self
-    //where
-    //    F: FnOnce(&mut V),
-    //{
-    //    // match self {
-    //    //     Entry::Occupied(mut e) => {
-    //    //         modifier(&mut e.element.1);
-    //    //         //                let ret = mem::replace(
-    //    //         //                    e,
-    //    //         //                    OccupiedEntry {
-    //    //         //                        element: &mut (0, 0),
-    //    //         //                    },
-    //    //         //                );
-    //    //         Entry::Occupied(e)
-    //    //     }
-    //    //     Entry::Vacant(mut e) => Entry::Vacant(e),
-    //    // }
-    //    let mut ret;
-    //    if let Entry::Occupied(mut e) = self {
-    //        modifier(&mut e.element.1);
-    //        ret = Entry::Occupied(e);
-    //    } else {
-    //        if let Entry::Vacant(mut e) = self {
-    //            ret = Entry::Vacant(e);
-    //        };
-    //    }
-    //    ret
-    //}
+    pub fn and_modify<F>(self, modifier: F) -> Self
+    where
+        F: FnOnce(&mut V),
+    {
+        match self {
+            Entry::Occupied(e) => {
+                modifier(&mut e.element.1);
+                //                let ret = mem::replace(
+                //                    e,
+                //                    OccupiedEntry {
+                //                        element: &mut (0, 0),
+                //                    },
+                //                );
+                Entry::Occupied(e)
+            }
+            Entry::Vacant(e) => Entry::Vacant(e),
+        }
+    }
 }
 
 impl<K, V> HashMap<K, V>
