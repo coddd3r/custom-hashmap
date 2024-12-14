@@ -24,9 +24,13 @@ fn main() {
     let stat = player_stats.entry("attack").or_insert(100);
     *stat += random_stat_buff();
 
+    player_stats.insert("mana", 20);
+
     // modify an entry before an insert with in-place mutation
     player_stats
         .entry("mana")
         .and_modify(|mana| *mana += 201)
         .or_insert(100);
+
+    println!("{:?}", player_stats);
 }

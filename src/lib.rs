@@ -6,6 +6,8 @@ use std::{
 };
 
 const INITIAL_NBUCKETS: usize = 1;
+
+#[derive(Debug)]
 pub struct HashMap<K, V> {
     buckets: Vec<Vec<(K, V)>>,
     items: usize,
@@ -48,13 +50,19 @@ pub struct OccupiedEntry<'a, K, V> {
 
 pub struct VacantEntry<'a, K, V> {
     key: K,
-    bucket: &'a mut Vec<(K, V)>, //bucket that it will be placed to
+    map: &'a mut HashMap<K, V>,
+    bucket: usize,
 }
 
 impl<'a, K, V> VacantEntry<'a, K, V> {
-    pub fn insert(self, value: V) -> &'a mut V {
-        self.bucket.push((self.key, value));
-        &mut self.bucket.last_mut().unwrap().1
+    pub fn insert(self, value: V) -> &'a mut V
+    where
+        K: Hash + Eq,
+        V: Hash + Eq,
+    {
+        self.map.buckets[self.bucket].push((self.key, value));
+        self.map.items += 1;
+        &mut self.map.buckets[self.bucket].last_mut().unwrap().1
     }
 }
 
@@ -62,39 +70,12 @@ pub enum Entry<'a, K, V> {
     Occupied(OccupiedEntry<'a, K, V>),
     Vacant(VacantEntry<'a, K, V>),
 }
-//pub enum Entry<'a, K, V> {
-//    Occupied(OccupiedEntry<'a, K, V>),
-//    Vacant(VacantEntry<'a, K, V>),
-//}
 
-//impl<'a, K, V> Entry<'a, K, V>
-//where
-//K: Copy,
-//V: Copy,
-//{
-//    pub fn and_modify<F>(&mut self, modifier: F) -> Self
-//    where
-//        F: FnOnce(&mut V),
-//        //OccupiedEntry<'a, K, V>: Copy,
-//        //VacantEntry<'a, K, V>: Copy,
-//    {
-//        match self {
-//            Entry::Occupied(e) => {
-//                modifier(&mut e.element.1);
-//                //                let ret = mem::replace(
-//                //                    e,
-//                //                    OccupiedEntry {
-//                //                        element: &mut (0, 0),
-//                //                    },
-//                //                );
-//                Entry::Occupied(e)
-//            }
-//            Entry::Vacant(e) => Entry::Vacant(e),
-//        }
-//    }
-//}
-
-impl<'a, K, V> Entry<'a, K, V> {
+impl<'a, K, V> Entry<'a, K, V>
+where
+    K: Hash + Eq,
+    V: Hash + Eq,
+{
     pub fn or_insert(self, val: V) -> &'a mut V {
         match self {
             Entry::Occupied(e) => &mut e.element.1, //ifoccupied give back value
@@ -126,12 +107,6 @@ impl<'a, K, V> Entry<'a, K, V> {
         match self {
             Entry::Occupied(e) => {
                 modifier(&mut e.element.1);
-                //                let ret = mem::replace(
-                //                    e,
-                //                    OccupiedEntry {
-                //                        element: &mut (0, 0),
-                //                    },
-                //                );
                 Entry::Occupied(e)
             }
             Entry::Vacant(e) => Entry::Vacant(e),
@@ -220,17 +195,24 @@ where
     }
 
     pub fn entry(&mut self, key: K) -> Entry<K, V> {
+        if self.buckets.is_empty() || self.items > 3 * self.buckets.len() / 4 {
+            self.resize();
+        }
         let bucket = self.get_bucket(&key);
-        let bucket = &mut self.buckets[bucket];
+        //let bucket = &mut self.buckets[bucket];
 
         //get around double borrow
-        if bucket.iter().any(|(k, _)| k == &key) {
-            let e = bucket.iter_mut().find(|(k, _)| k == &key);
+        if self.buckets[bucket].iter().any(|(k, _)| k == &key) {
+            let e = self.buckets[bucket].iter_mut().find(|(k, _)| k == &key);
             return Entry::Occupied(OccupiedEntry {
                 element: e.unwrap(),
             });
         } else {
-            Entry::Vacant(VacantEntry { key, bucket })
+            Entry::Vacant(VacantEntry {
+                key,
+                bucket,
+                map: self,
+            })
         }
     }
 
