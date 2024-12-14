@@ -27,4 +27,13 @@ fn main() {
     for (viking, health) in &vikings {
         println!("{viking:?} has {health} hp");
     }
+    let solar_distance = HashMap::from([
+        ("Mercury", 0.4),
+        ("Venus", 0.7),
+        ("Earth", 1.0),
+        ("Mars", 1.5),
+    ]);
+    for (p, dist) in &solar_distance {
+        println!("{p:?} has {dist} dist");
+    }
 }

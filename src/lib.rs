@@ -268,6 +268,22 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
     }
 }
 
+impl<K, V> FromIterator<(K, V)> for HashMap<K, V>
+where
+    K: Hash + Eq,
+{
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = (K, V)>,
+    {
+        let mut ret: HashMap<K, V> = HashMap::new();
+        iter.into_iter().for_each(|(k, v)| {
+            ret.insert(k, v);
+        });
+        ret
+    }
+}
+
 impl<K, Q, V> Index<&Q> for HashMap<K, V>
 where
     K: Eq + Hash + Borrow<Q>,
