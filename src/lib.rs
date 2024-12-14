@@ -267,6 +267,39 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
         }
     }
 }
+pub struct IntoIter<K, V> {
+    map: HashMap<K, V>,
+    curr_bucket: usize,
+}
+
+impl<K, V> Iterator for IntoIter<K, V> {
+    type Item = (K, V);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.map.buckets.get_mut(self.curr_bucket) {
+                Some(bucket) => match bucket.pop() {
+                    Some(x) => break Some(x),
+                    None => {
+                        self.curr_bucket += 1;
+                        continue;
+                    }
+                },
+                None => break None,
+            }
+        }
+    }
+}
+
+impl<K, V> IntoIterator for HashMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+    fn into_iter(self) -> IntoIter<K, V> {
+        IntoIter {
+            curr_bucket: 0,
+            map: self,
+        }
+    }
+}
 
 impl<K, V> FromIterator<(K, V)> for HashMap<K, V>
 where
@@ -348,11 +381,11 @@ mod tests {
         assert!(!map.is_empty());
         assert_eq!(map.len(), 4);
 
-        map.into_iter().for_each(|(k, v)| match *k {
-            "a" => assert_eq!(*v, 10),
-            "b" => assert_eq!(*v, 20),
-            "c" => assert_eq!(*v, 30),
-            "d" => assert_eq!(*v, 40),
+        map.into_iter().for_each(|(k, v)| match k {
+            "a" => assert_eq!(v, 10),
+            "b" => assert_eq!(v, 20),
+            "c" => assert_eq!(v, 30),
+            "d" => assert_eq!(v, 40),
             _ => unreachable!(),
         });
     }
