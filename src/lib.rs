@@ -199,7 +199,6 @@ where
             self.resize();
         }
         let bucket = self.get_bucket(&key);
-        //let bucket = &mut self.buckets[bucket];
 
         //get around double borrow
         if self.buckets[bucket].iter().any(|(k, _)| k == &key) {
@@ -223,7 +222,6 @@ where
     {
         let bucket = self.get_bucket(key);
         let bucket = &mut self.buckets[bucket];
-        //let removed = None;
         let index = bucket.iter().position(|(k, _)| k.borrow() == key)?;
         self.items -= 1;
         Some(bucket.swap_remove(index).1)
@@ -286,6 +284,19 @@ where
             .find(|(k, _)| k.borrow() == key)
             .map(|(_, v)| v)
             .unwrap()
+    }
+}
+
+impl<K, V, const N: usize> From<[(K, V); N]> for HashMap<K, V>
+where
+    K: Eq + Hash,
+{
+    fn from(value: [(K, V); N]) -> Self {
+        let mut ret: HashMap<K, V> = HashMap::new();
+        value.into_iter().for_each(|(k, v)| {
+            ret.insert(k, v);
+        });
+        ret
     }
 }
 
