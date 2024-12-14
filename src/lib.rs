@@ -267,6 +267,7 @@ impl<'a, K, V> IntoIterator for &'a HashMap<K, V> {
         }
     }
 }
+
 pub struct IntoIter<K, V> {
     map: HashMap<K, V>,
     curr_bucket: usize,
